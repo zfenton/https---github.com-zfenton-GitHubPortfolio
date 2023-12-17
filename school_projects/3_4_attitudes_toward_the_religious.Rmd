@@ -1,0 +1,60 @@
+---
+title: 'Lab 1: Evaluating Assumptions'
+subtitle: 'Question 3.4 - Attitudes Toward the Religious'
+date: "`r Sys.Date()`"
+geometry: "left=2cm,right=2cm,top=1cm,bottom=2cm"
+output: pdf_document
+---
+
+## Introduction
+
+For this analysis, we will evaluate the assumptions and validity of using a Paired t-Test on data collected by GSS in 2004 to answer the question whether the U.S. feels more positive towards Catholics or Protestants.
+
+In preparing the data, we first calculated the difference between how individuals felt about Catholics versus Protestants.
+
+```{r load packages, message=FALSE, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(knitr)
+#library(kableExtra)
+#library(formattable)
+library(tinytex)
+
+theme_set(theme_bw())
+
+options(tinytex.verbose = TRUE)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+```
+
+```{r, echo=FALSE}
+gss <- read_csv('../datasets/GSS_religion.csv') 
+```
+
+## Assumptions for Paired T-Test
+
+1.  **A and B have a metric scale with the same units** - Not Satisfied: we are defining each variable as A = Protestant_temp & B = Catholic_temp. Each person will define 'feeling' values with different magnitudes, despite the numerical assignment. While each variable shares the same units, they are of an ordinal scale.
+
+2.  **There is a natural pairing between the observations for A and for B** - Satisfied: The survey was taken by asking a single individual how they 'felt' toward each group. This shows a natural pairing between each variable.
+
+3.  **Each pair (A_i, B_i) is drawn I.I.D.** - Satisfied: to evaluate this assumption, first we started by evaluating *Independence*. According to the GSS Codebook:
+
+> "Each survey from 1972 to 2004 was an **independently** drawn sample of English-speaking persons 18 years of age or over, living in non-institutional arrangements within the United States"[^1]
+
+[^1]: Cumulative Codebook, Created by General Social Surveys, 1972-2018, Published December 2019, <https://gss.norc.org/documents/codebook/GSS_Codebook_intro.pdf>
+
+> This satisfies independence. Next we evaluated whether each draw of A and B were identically distributed. We reason that because each draw is conducted randomly from the same group, it is reasonable to assume that each sample draw has identical distribution.
+
+4.  **The distribution of the difference of A and B is sufficiently normal given sample size** - Satisfied: to test this assumption, we first calculated the difference between how individuals felt about Catholics versus Protestants. By plotting this difference in the histogram below, we can see the normality of distribution between A and B (difference between feelings towards Catholics vs Protestants).
+
+```{r, out.height='50%', out.width='50%', fig.keep='all', fig.fullwidth=TRUE, fig.align='center'}
+# Paired test; take differences of paired variables and check normality:
+gss <- transform(
+  gss, difference = prottemp - cathtemp
+  )
+hist(gss$difference, ylab="Count", xlab="Feeling in Degrees", main="Difference in feeling: Catholics vs Protestants")
+```
+
+```{r, echo=FALSE}
+# References
+
+#1)  " *General Social Survey, 2004(ICPSR 35328)* ", National Opinion Research Center. General Social Survey, 2004. Ann Arbor, MI: Inter-university #Consortium for Political and Social Research [distributor], 2016-06-30, <https://doi.org/10.3886/ICPSR35328.v3>
+```
