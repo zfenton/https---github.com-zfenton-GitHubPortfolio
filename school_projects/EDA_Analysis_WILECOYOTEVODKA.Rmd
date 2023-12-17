@@ -1,0 +1,170 @@
+---
+title: "EDA and Analysis for WILE E COYOTE VODKA"
+author: 'Rob Horrobin, Zach Fenton, Yoni Nackash-Updated 12/9/23'
+output:
+  pdf_document
+header-includes:
+ \usepackage{wrapfig}
+ \usepackage{float}
+ \floatplacement{figure}{H}
+---
+```{r}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+library(wooldridge)
+library(car)
+library(lmtest)
+library(sandwich)
+library(stargazer)
+library(dplyr)
+library(data.table)
+library(stringr)
+library(gridExtra)
+```
+
+```{r}
+# Load liquor sales data
+# https://www.kaggle.com/datasets/gabrielramos87/iowa-sales-liquor-jan-2021jan-2022
+sales <- fread('~/lab-2-catch_22/data/raw/Iowa_Liquor_Sales.csv', select = c("store_number","item_number","category","category_name","pack","bottle_volume_ml","state_bottle_retail","bottles_sold","sale_dollars"))
+```
+
+```{r}
+#We know there is a lot of odd liquor types that we won't compete with such as small bottles and very large bottles, so we plot histograms to see what is a reasonable place to cut our distributions
+hist_plot_bottlevol <- sales %>% 
+  ggplot(aes(x = bottle_volume_ml)) + 
+  geom_histogram(binwidth = 50)
+hist_plot_bottlevol
+#From the plots, we know we don't want to compete in the <=50ml or >2000ml to start
+
+#Doing same test for sales bottle retail
+hist_plotretail <- sales %>% 
+  ggplot(aes(x = state_bottle_retail)) + 
+  geom_histogram(binwidth = 100)
+hist_plotretail
+#We know we don't want to compete in the >$200 range as most of the market is well below that, below we find the 99th percentile to avoid large outliers
+
+#Doing same for odd pack sizes
+hist_plot_pack <- sales %>% 
+  ggplot(aes(x = pack)) + 
+  geom_histogram(binwidth = 2)
+
+hist_plot_pack
+#We know we we won't compete against large cases of liquor so set cap at 24 pack
+
+```
+
+```{r}
+########## Filtering Outliers ##########
+#Based on the above we set limits for our bottle, pack and sales constraints
+
+#Setting sales retail to $75 which we know is the 99th percentile based on other testing
+sales <- sales[sales$state_bottle_retail <= 75,]
+
+#Bottle pack < 24 to stay within most of the market
+sales <- sales[sales$pack <= 24,]
+
+# Bottle size, cutting at 50ml and 2000ml which we know from testing is 99th percentile and 10th percentile
+bottle_size_99_quantile = quantile(sales$bottle_volume_ml, probs = .99 , na.rm = FALSE)
+bottle_size_02_quantile = quantile(sales$bottle_volume_ml, probs = .10 , na.rm = FALSE)
+sales <- sales[sales$bottle_volume_ml <= bottle_size_99_quantile,]
+sales <- sales[sales$bottle_volume_ml > bottle_size_02_quantile,]
+
+# Fixing one outlier in our EDA where a singe bottle was sold of Whiskey that was miscategorized as another category, creating a strong and erroneous outlier data point in our data
+# sales$category <- ifelse(sales$item_number == 22219, 1011200, sales$category)
+sales <- sales[sales$item_number != 22219,]
+```
+
+
+```{r}
+########## Clean category names ##########
+
+#Binning based on categories of liquor from item number (e.g. Vodka items begin with 103)
+sales$liquor_category <- substr(sales$category,0,3)
+
+#Converting liquor type to intuitive names of liquors
+sales <- sales%>%
+  mutate(liquor_category = case_when(
+    (grepl("102", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Tequila",
+    (grepl("106", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Rum",
+    (grepl("105", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Brandy",
+    (grepl("104", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Gin",
+    (grepl("103", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Vodka",
+    (grepl("101", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Whiskey",
+    (grepl("108", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Liqueur",
+    (grepl("107", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Cocktails",
+    (grepl("109", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Distilled Specialty",
+    (grepl("170", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Temporary and Specialty Packages",
+    (grepl("190", sales$liquor_category, fixed = TRUE) == TRUE) ~ "Special Orders"))
+```
+
+
+```{r}
+########## Group data ##########
+# Group data with all metric data to capture unique categories of alcohol by liquor type, bottle size, bottle price, summing the total bottles sold of each
+sales_grouped <- sales %>%
+  group_by(liquor_category, pack, bottle_volume_ml, state_bottle_retail) %>%
+  summarise_at(vars(bottles_sold), list(sum=sum))
+sales_grouped
+```
+
+```{r}
+# Rename some of the dataframe columns
+sales_grouped <- sales_grouped %>% 
+  dplyr::rename(
+    bottle_price = state_bottle_retail,
+    bottles_sold = sum,
+  )
+```
+
+```{r}
+#Evaluating our data sets for any outliers or odd behavior
+scatter1<-ggplot(sales_grouped, aes(x=bottle_volume_ml, y=bottles_sold)) + geom_point()
+scatter2<-ggplot(sales_grouped, aes(x=pack, y=bottles_sold)) + geom_point()
+scatter3<-ggplot(sales_grouped, aes(x=bottle_price, y=bottles_sold)) + geom_point() + geom_smooth()
+scatter4<-ggplot(sales_grouped, aes(x=liquor_category, y=bottles_sold)) + geom_point()
+scatter1
+scatter2
+scatter3
+scatter4
+
+
+```
+
+```{r}
+#plotting log of x variables to see if we can avoid potential outliers or non-linearity
+scatter5<-ggplot(sales_grouped, aes(x=log(bottle_volume_ml), y=bottles_sold)) + geom_point()
+scatter6<-ggplot(sales_grouped, aes(x=log(pack), y=bottles_sold)) + geom_point()
+scatter7<-ggplot(sales_grouped, aes(x=log(bottle_price), y=bottles_sold)) + geom_point() 
+scatter5
+scatter6
+scatter7
+
+```
+```{r}
+#plotting plots if converting Y to logarithmic output (Bottle_ML)
+scatter8<-ggplot(sales_grouped, aes(x=bottle_volume_ml, y=log(bottles_sold))) + geom_point()
+scatter9<-ggplot(sales_grouped, aes(x=pack, y=log(bottles_sold))) + geom_point()
+scatter10<-ggplot(sales_grouped, aes(x=bottle_price, y=log(bottles_sold))) + geom_point() + geom_smooth()
+scatter8
+scatter9
+scatter10
+#We can see that log of bottles sold enables us to transform our Y for good effect, as we see in bottle price vs bottles sold we have multiple orders of magnitude, there is significant clustering near zero, and there are numerous outliers.
+```
+
+```{r}
+# Adding interaction term of price per ml to accommodate how pricey a bottle may be for a given size
+sales_grouped$dollar_ml <- sales_grouped$bottle_price/sales_grouped$bottles_sold
+```
+
+```{r}
+#We know we have two other outliers with a single transaction each of a single bottle, which should likely be in other rows of data based on liquor type, name and size. 
+#As an example, we saw Monkey 47 gin was same size and type, but one store priced slightly differently than all other stores, so it was treated as a different instance of 
+#liquor type, price, pack size and bottle size; this should likely be in with other transactions. As such, we isolated out single bottle data points with N=2.
+sales_grouped <- sales_grouped[sales_grouped$bottles_sold != 1,]
+```
+
+```{r}
+########## Write cleaned dataframe to new CSV file ##########
+write.csv(sales_grouped, '~/lab-2-catch_22/data/processed/processed_liquor_sales.csv', row.names=FALSE)
+```

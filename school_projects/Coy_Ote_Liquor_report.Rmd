@@ -1,0 +1,208 @@
+---
+title: "Estimating the Ideal Bottle Size - Datasci 203 - Lab 2"
+subtitle: "Rob Horrobin, Yoni Nackash, Zachary Fenton"
+#geometry:  "top=1.5cm, left=1.5cm, right=1.5cm, bottom=1.5cm"
+output:
+  pdf_document
+---
+
+```{r load packages and set options, include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+library(wooldridge)
+library(car)
+library(lmtest)
+library(sandwich)
+library(stargazer)
+library(plyr)
+library(data.table)
+library(stringr)
+library(gridExtra)
+
+theme_set(theme_bw())
+```
+
+```{r, echo=FALSE}
+# Load cleaned liquor sales data
+sales_grouped <- read.csv('/Users/robhorrobin/Desktop/DS203/Lab2/lab-2-catch_22/data/processed/processed_liquor_sales.csv')
+```
+
+## Introduction
+
+Many celebrities are flooding the world of premium liquor, seeing it as a viable investment opportunity, while for others it is an opportunity to increase their celebrity status as a result of liquor popularity.
+
+It is often argued that liquor marketing and brand recognition are nearly as important as the taste of the liquor itself. One such success story comes from George Clooney. Clooney took his tequila company Casamigos public in 2013, and after recognition of the tequila brand grew, the company later sold for 1 billion dollars.[^1] Experts attribute this significant price tag to brand recognition driven by a household name.
+
+[^1]: Millington, A. (2018, August 23). The \$1 billion sale of George Clooney's Tequila Company just made him 2018's highest-paid actor - here's the story of how the brand was set up by accident. Business Insider. <https://www.businessinsider.com/george-clooney-tequila-brand-casamigos-started-by-accident-2017-6>
+
+With prior success as an inventor and prominent cartoon star, Dr. Coy Ote's *Acme Inc.* is looking to pivot to selling liquor. As *Acme Inc.* is a newcomer in the alcoholic beverage space, our objective is to understand the relationship between certain bottle characteristics, such as bottle size, bottle price, and liquor type, and the success of that liquor campaign.
+
+This study utilizes observations of liquor sales in Iowa to estimate bottle size (in milliliters) that will maximize the number of bottles sold. Applying a set of regression models, we estimate the causal effect of bottle characteristics on number of bottles sold and aim to make *Acme Inc.* Liquor a household name.
+
+## Data and Methodology
+
+The data for this study comes from an observational Kaggle dataset prepared by Gabriel Ramos, titled Iowa Liquor Sales.[^2] The data focuses on sales between January 2021 and January 2022, and contains around 2.8 million rows of transactions. Each row represents individual products purchased at the store level, and contains pertinent metadata about the product.
+
+[^2]: <https://www.kaggle.com/datasets/gabrielramos87/iowa-sales-liquor-jan-2021jan-2022>
+
+Identifying an applicable sample of products for our analysis requires some investigation. The data contains a number of specialty items, such as miniature bottles of popular alcohol, and limited time offerings from premium brands. For example, analyzing bottle volume in milliliters we uncovered sales of small bottles -- such as 20 milliliter Jagermeister Minis, and analyzing bottle price we uncovered extremely expensive bottles -- such as Remy Martin Cognac priced around \$3,000 a bottle. As our objective is to develop and market a bottle of liquor for the general public, these offerings will not be our main competitors, and add noise to our analysis. We have removed these outliers from our data, focusing on the 90% of bottles that fall between 100 and 1,750 milliliters, as well as the 99th percentile of bottles priced below \$75. In addition, we plan to compete in smaller pack sizes -- 99% of all products in our data come in packs of 24 or less, thus we set this as a constraint. Lastly, we identified two individual bottle transactions with obvious anomalies, which we removed. As befits removal of strong outliers, we didn't see a significant drop in size for our model sample, going from 2.8 million data points down to 2.4 million data points.
+
+Additionally, the data contains 57 distinct categories of liquor that are quite descriptive, such as Tennessee Whiskey, Aged Dark Rum, and Flavored Gin. In order to operationalize liquor category, these descriptive names have been rolled up to general liquor-level groups, such as Whiskey, Rum, and Gin. We accomplished this by utilizing the category id field, where the first 3 digits of the hierarchical number represent a liquor group.
+
+The outcome variable of interest in our study is the number of bottles sold for a particular product makeup. To operationalize bottles sold, we aggregate our data by bottle volume in milliliters, the price of the bottle, the liquor group, and the number of bottles in a pack. Through this, we are able to isolate the effect that bottle packaging and marketing decisions have on the number of bottles sold. As a result of the grouping, our processed data contains 2,484 observations, with each row representing a unique product makeup and its number of bottles sold.
+
+With our model data now defined, we created exploratory plots of our independent and dependent variables to understand their relationships, and if any potential transformations may improve linearity. As seen on the left-hand side of Figure 1 below, plotting our dependent variable (bottles sold) against bottle price, we observed that the y-axis spans multiple orders of magnitude, there is significant clustering near zero, and there are numerous outliers. Therefore, our model may benefit from transforming our dependent variable via a logarithmic transformation. After performing this transformation, the improvement is well evidenced when comparing to the plot on the right side of Figure 1, where we can see a defined linear relationship between the dependent and independent variable.
+
+```{r, message=FALSE, echo=FALSE, fig.height = 3, fig.width = 10, fig.align='center', fig.show='hold', fig.cap='Bottles sold versus bottle price, before and after log transformation'}
+
+gg1<-ggplot(sales_grouped, aes(x=bottle_price, y=bottles_sold)) + 
+  geom_point() + 
+  geom_smooth() +
+  ggtitle('Untransformed Bottles Sold ') +
+  #theme(text = element_text(size=17))
+  theme(axis.title.x=element_blank(), 
+        axis.title.y=element_blank(),
+        plot.title = element_text(size=16, face="bold", hjust=0.5, vjust = 0.5))
+
+gg2<-ggplot(sales_grouped, aes(x=bottle_price, y=log(bottles_sold))) + 
+  geom_point() + 
+  geom_smooth() +
+  ggtitle('Log Bottles Sold') +
+  theme(axis.title.x=element_blank(), 
+        axis.title.y=element_blank(),
+        plot.title = element_text(size=16, face="bold", hjust=0.5, vjust = 0.5))
+
+
+grid.arrange(gg1, gg2,nrow=1, left='Bottles Sold', bottom = 'Bottle Price') 
+```
+
+Additionally, we considered how price sensitivity may affect our estimation. While we removed extremely expensive and inexpensive products from our data, the price per milliliter may affect consumers interest in a particular product. To solve for this, we created an interaction term of *bottle price / bottle volume*, yielding price per milliliter. This can be used as a proxy for bottle expensiveness, agnostic of bottle size. In totality, this resulted in a regression of the form: 
+
+$$
+  \widehat{log(bottles\ sold)}=\beta_0 + \beta_1\cdot   bottle\  vol\  ml\ + \beta_2\cdot bottle\ price + \beta_3 \cdot bottles\ per\ pack + \mathbf{Z\gamma}
+$$
+Given we have transformed our dependent variable with a logarithm transformation, a 1 unit increase in any of our independent variables, will increase the number of bottles sold by the coefficient of that variable * 100 units. In the equation above, $\beta_1$ represents the change in bottles sold given an incremental increase in bottle volume, $\beta_2$ represents the change in bottles sold for each incremental dollar added, $\beta_3$ represents the change in bottle sold for each additional bottle added to the pack. $\mathbf{Z}$ is a row vector of additional covariates including liquor type and our interaction term, and $\mathbf{\gamma}$ is a column vector of coefficients for those covariates.
+
+## Results
+
+Table 1 shows the results of 3 iterative regression models. Across all models, we can see that bottle volume, bottle price, and pack size are all statistically significant. With regard to our primary question of does bottle size have an effect on sales, with all other factors kept the same, the insight is not immediately clear. 
+
+```{r, echo=FALSE}
+# Building model 
+model_1  <- lm(log(bottles_sold) ~ bottle_volume_ml, data = sales_grouped)
+model_2  <- lm(log(bottles_sold) ~ bottle_volume_ml + bottle_price + pack, data = sales_grouped)
+model_3 <- lm(log(bottles_sold) ~ bottle_volume_ml + bottle_price + pack + liquor_category + dollar_ml, data = sales_grouped)
+
+robust_se1<-sqrt(diag(vcovHC(model_1)))
+robust_se2<-sqrt(diag(vcovHC(model_2)))
+robust_se3<-sqrt(diag(vcovHC(model_3)))
+
+se_list <- list(robust_se1,robust_se2,robust_se3)
+```
+
+
+```{r, echo=FALSE, results = "asis"}
+stargazer(
+  model_1, model_2, model_3,
+  omit = c("Cocktail|Gin|Liqueur|Whiskey|Temporary and Specialty Packages|Rum|Tequila"),
+  header=FALSE,
+  se = se_list,
+  title = "Estimated Bottle Sales Regressions",
+  dep.var.caption  = "Output Variable: number of bottles sold",
+  #type = "text",
+  dep.var.labels   = "",
+  covariate.labels=c("bottle vol ml", "bottle price", "bottles per pack", "Category-Distilled Specialty","Category-Special Orders","Category-Vodka","Interaction-dollars per ml", "Constant"),
+  # add.lines = list(
+  #   c("Bottles Sold", "\\checkmark", "\\checkmark", ""),
+  #   c("Log of Bottles Sold", "", "", "\\checkmark"),
+  #   "\\hline"), 
+  omit.stat=c("rsq","f"),
+  digits=2,
+  notes.append = FALSE,
+  notes = "\\parbox[t]{7cm}{$HC_1$ robust standard errors in parentheses. Additional features that have been removed from the stargazer output are the following liquor types: Cocktail, Gin, Liqueur, Whiskey, Temp and Specialty, Rum, and Tequila.}"
+)
+```
+
+Considering ~90% of product sales have a bottle volume between 100 milliliters and 1,750 liters, the maximum change in bottle volume we can expect is 1,650 ml. Given the logarithmic transformation and this maximum possible difference in volume size, we did an algebraic treatment for a generic Vodka alcohol to evaluate the practical significance. We assumed a Vodka product, coming in packs of 2, with a bottle price of \$15. We then solved for estimated sales between this product coming in 1,750 ml and 100 ml sizes. As a result, we only saw a 1,215 bottle increase in sales. Given our data has over 28 million bottles sold, this would be a very small market share change. Therefore, while we have found statistically significant findings, we do not believe these are practically significant, and may suggest that other factors, such as branding, product placement, and distribution, could be more practically relevant in driving product sales.
+
+## Limitations
+
+For regression analysis to be consistent in its estimates, observations must be independent and identically distributed (IID). Because sales take place over time and the data set includes a sales date, there is a possibility of temporal autocorrelation occurring. To account for this, the data set we are using covers an entire calendar year (January 2021 - January 2022). The regression we are using takes a summation of bottles sold, independent of time.
+
+Because certain stores may sell more alcohol than others, there is possibility of geographical clustering. Compounding on alcohol sales, there is also the possibility of stores in more affluent areas selling more of a certain type of liquor compared to stores in less affluent areas. We accounted for this by removing reference to store location.
+
+Valid regression estimates that maintain consistency also require a unique best linear predictor that can describe the population distribution. A simple test for this is to run the regression model in statistical software and look for dropped variables -- in our case this did not occur. We also did not see any heavy tailed distributions in our residuals, which further indicate no perfect collinearity and the presence of a unique best linear predictor. 
+
+One limitation that could effect the overall structure of our model is the omission of variables that may bias our estimates. The omitted variable is assumed to not interact with other independent variables, specifically our key independent variable of interest in the true model. A possible omitted variable in our model is *alcohol by volume* (ABV). For purposes of this study, we assume that ABV is negatively correlated with bottle size, our key independent variable. We also reason that bottles sold and ABV are negatively correlated -- that is, in general consumers are more likely to buy alcohol with lower ABV. This would lead us to predict a positive omitted variable bias. The overall effect of this would drive our estimates away from zero, leading to overconfidence in our hypothesis tests.
+
+Additionally, there is a possibility of an outcome variable on the right side of our equation. For example, as bottle size changes, there may be an effect on bottle price -- as bottle size increases, the price of that bottle increases as well. Considering as prices rise consumers typically purchase that product less, there is a negative relationship between bottle price and bottles sold. As a result, the incremental number of bottles expected due to changes in bottle volume is less than reality because of this right hand side effect. This bias results in estimation being driven towards zero, suggesting our hypothesis tests are under estimated. 
+
+## Conclusion
+
+This study estimates the number of bottles sold based on different bottle characteristics, namely bottle size in milliliters. When regressing only on bottle volume, we can see that the maximum practical difference in volume (i.e. going from 100ml to 1,750ml bottles) does not result in a practical increase in bottles sold. While the inclusion of several covariates and interaction terms led to an increase in our adjusted $R^2$, and our key variable of bottle size is statistically significant, it does not appear to be practically significant.
+
+Through our investigation and analysis, it became clear that the most common bottle size marketed and purchased is 750 milliliters. For the purposes of this study, we feel that it is important to preserve our initial hypothesis and report our results without modifying bottle categories (e.g. 750ml and all other). With this knowledge, however, future researchers and data scientists may be interested in recodifying the bottle size variable into a binary indicator: 750 milliliters = 1, all other bottle sizes = 0. This recodification may yield more practical results when estimating bottle sales, and provide more certainty about the characteristics that will drive a successful liquor campaign.
+
+
+
+```{r,echo=FALSE}
+
+bottle_volume_resids <- sales_grouped %>% 
+  ggplot(aes(bottle_volume_ml, residuals(model_3))) + 
+  geom_point() + 
+  stat_smooth()
+
+state_bottle_price_resids <- sales_grouped %>% 
+  ggplot(aes(bottle_price, residuals(model_3))) + 
+  geom_point() + 
+  stat_smooth()
+
+pack_resids <- sales_grouped %>% 
+  ggplot(aes(pack, residuals(model_3))) + 
+  geom_point() + 
+  stat_smooth()
+
+#bottle_volume_resids
+#state_bottle_price_resids
+#pack_resids
+
+```
+
+```{r,echo=FALSE}
+### plot residuals of models
+homo_plot <- sales_grouped %>% 
+  drop_na() %>%
+  ggplot(aes(predict(model_3), residuals(model_3))) + 
+  geom_point() + 
+  stat_smooth() +
+  ggtitle("Residuals vs Fitted Values") +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+
+#homo_plot
+
+##Plotting Residual
+
+#hist(residuals(model_3))
+
+
+```
+
+```{r,echo=FALSE}
+
+#shapiro.test(residuals(model_3))
+
+```
+
+```{r, echo=FALSE}
+#This is a generic bottle, and we know our maximum range is 100-1750ml, so we attempted to evaluate a practical maximum increase for a typical bottle based on our regression.
+#Generic bottle (constant, 100ml bottle = $0.15 dollar/ml, Vodka, 2 bottle per pack, bottle price = $15, bottle ml=100)
+#bottle_sold<-exp((4.82)+(-.69*.15)+(0.56)+(.16*2)+(-.01*15)+(.001*100))
+#bottle_sold
+#bottle_sold_large<-exp((4.82)+(-.69*0.0086)+(0.56)+(.16*2)+(-.01*15)+(.001*1750))
+#bottle_sold_large
+#bottle_sold_large-bottle_sold
+```
+
+
