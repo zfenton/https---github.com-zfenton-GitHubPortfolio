@@ -1,0 +1,40 @@
+---
+title: "depression_gdp"
+author: "Zachary Fenton"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+df <- read.csv("//wsl.localhost/Ubuntu/home/zfenton/github_portfolio/Portfolio/data/depressive-disorders-prevalence-vs-gdp-per-capita.csv")
+names(df) <- c("Country", "Code", "Year", "Depression_index", "GDP_per_capita", "Continent")
+```
+
+
+```{r}
+head(df, 10)
+```
+
+```{r}
+df2 <- df %>%
+  filter(Year > 1999 & Year < 2020)
+```
+
+
+```{r}
+df_australia <- df2 %>%
+  filter(Country == 'Australia')
+
+ggplot(data=df_australia, aes(x=Year)) +
+  geom_line(aes(y=Depression_index, colour="var0")) +
+  geom_line(aes(y=(GDP_per_capita/10000), colour="var1"))
+```
+
