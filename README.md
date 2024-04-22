@@ -3,7 +3,7 @@ Repository containing projects from personal, professional, and academic.
 
 Tools:
   1. **Python**: Numpy, Pandas, Matplotlib, Seaborn
-  2. **Data Science**: Pytorch, scikit-learn
+  2. **Data Science**: TensorFlow, Pytorch, scikit-learn
   3. **R**: tidyverse
 
 ## Content
