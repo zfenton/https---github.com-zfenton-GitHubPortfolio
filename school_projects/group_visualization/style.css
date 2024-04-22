@@ -1,0 +1,124 @@
+/** Header **/
+#intro {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 60px;
+  padding-top: 5%;
+  padding-bottom: 1%;
+  background-image: url("https://cloudfront-us-east-1.images.arcpublishing.com/opb/2QDFZGEQQAMOXPACBR54CMD3QY.jpg");
+  height: 800px;
+  width: 100%;
+}
+
+#intro h1 {
+  text-align: center;
+  color: white;
+}
+
+#intro p {
+  width: 50%;
+  padding: 10px;
+  color: white;
+}
+
+#intro ul {
+  width: 50%;
+  padding-left: 100px;
+  color: white;
+}
+
+.intro-text {
+  width: 80%;
+}
+
+/** Scroll **/
+#scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.step {
+  opacity: 0;
+  transition: opacity 0.3s;
+  width: 90%;
+}
+
+.step.active {
+  opacity: 1;
+}
+
+#fixed-container {
+  position: fixed;
+  top: 0;
+  font-size: 1em;
+  width: 100%;
+  background-color: #fff;
+  z-index: -1;
+}
+
+#clear-top {
+  height: 20px;
+}
+
+#super-pacs-container-1.step.active,
+#super-pacs-container-2.step.active,
+#super-pacs-container-3.step.active,
+#super-pacs-container-4.step.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.anchor {
+  padding: 5%;
+}
+
+footer {
+  padding: 1%;
+  padding-left: 2%;
+}
+
+@media all and (min-width: 1000px) {
+
+  .d3-svg {
+    width: 65%;
+  }
+
+  .intro-text {
+    width: 60%;
+  }
+
+  body {
+    font-family: HelveticaNeue-Light;
+    font-size: 14pt;
+  }
+
+  #scroll-sections-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+
+
+  #fixed-container {
+    position: fixed;
+    right: 20px;
+    top: 20%;
+    width: 25%;
+    padding: 1%;
+  }
+
+  #scroll {
+    width: 85%;
+  }
+
+
+  .d3-svg-ang {
+    width: 50%;
+    font-size: 10pt;
+  }
+}
