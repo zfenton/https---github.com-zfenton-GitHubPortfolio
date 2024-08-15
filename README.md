@@ -5,7 +5,7 @@ Tools:
   1. **Python**: Numpy, Pandas, Matplotlib, Seaborn
   2. **Data Science**: TensorFlow, Pytorch, scikit-learn
   3. **R**: tidyverse
-  4. **HTML** & **CSS**
+  4. **HTML**, **CSS** & **JS**
 
 ## Content
 - ## Statistical Analysis
