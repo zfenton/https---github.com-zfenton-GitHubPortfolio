@@ -5,6 +5,7 @@ Tools:
   1. **Python**: Numpy, Pandas, Matplotlib, Seaborn
   2. **Data Science**: TensorFlow, Pytorch, scikit-learn
   3. **R**: tidyverse
+  4. **HTML** & **CSS**
 
 ## Content
 - ## Statistical Analysis
@@ -14,6 +15,9 @@ Tools:
   - [Analyzing relationship between air quality index (AQI) and average temperature in the United States from 2000-2019](https://github.com/zfenton/Portfolio/blob/Main/school_projects/DataSci200_code.ipynb)
     - [Presentation](https://github.com/zfenton/Portfolio/blob/Main/school_projects/Datasci200_Final_Project_presentation.pdf)
   - [GIS example using affordable housing and Planned Unit development zones in the Washington D.C. Area](https://github.com/zfenton/Portfolio/blob/Main/GIS_example.ipynb)
+  - [Data Visualization Group Project](https://github.com/zfenton/Portfolio/tree/Main/school_projects/group_visualization)
+      - [HTML](https://github.com/zfenton/Portfolio/blob/Main/school_projects/group_visualization/index.html)
+      - [CSS](https://github.com/zfenton/Portfolio/blob/Main/school_projects/group_visualization/style.css)
 - ## Machine Learning
   - [Tensorflow - ECG analysis and modelling](https://github.com/zfenton/UCBMIDS_W207_finalProject)
   - [Pytorch Intro](https://github.com/zfenton/Portfolio/blob/Main/pytorch_explore.ipynb)

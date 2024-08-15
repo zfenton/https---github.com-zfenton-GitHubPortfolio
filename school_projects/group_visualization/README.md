@@ -1,0 +1,1 @@
+Group Project showcasing data visualization of campgain spending. Published to web page ([Link](https://groups.ischool.berkeley.edu/buyingapresident/)). Utilized HTML and CSS visualizations and bootstrapping for JavaScript elements. 
